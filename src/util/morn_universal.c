@@ -254,6 +254,7 @@ void m_PropertyVariate(MObject *obj,const char *key,void *var,int var_size)
     
     if(p!=NULL) memcpy(var,p->value,vsize-sizeof(struct Property));
     else {p=mornMapWrite(handle->property,key,DFLT,NULL,vsize);p->func=NULL;p->para=NULL;}
+    
     p->var = var;
 }
 

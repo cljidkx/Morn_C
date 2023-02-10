@@ -42,7 +42,7 @@ MList *ThreadList()
 {
     struct HandleThread *handle=morn_thread_handle;
     if(handle!=NULL) return handle->list;
-    MHandle *hdl=mHandle("Morn",Thread);
+    MHandle *hdl=mHandle("Thread",Thread);
     if(!mHandleValid(hdl))
     {
         handle=hdl->handle;

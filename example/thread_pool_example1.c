@@ -21,6 +21,6 @@ int main()
         mRandString(&str[i][0],32,64);
         mThreadPool(func,&str[i][0]);
     }
-    mSleep(100);
+    mPropertyWrite("ThreadPool","exit");
     return 0;
 }
