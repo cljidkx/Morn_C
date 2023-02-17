@@ -44,6 +44,8 @@ struct HandleThreadPool
 
     int tid0;
     MThreadSignal sgn0;
+    
+    MThread *thrd0;
 };
 struct HandleThreadPool *morn_thread_pool_handle=NULL;
 void endThreadPool(struct HandleThreadPool *handle)
@@ -139,7 +141,6 @@ void m_ThreadPool(MList *pool,void *function,void *func_para,int *flag,int prior
     void **para=mMalloc(sizeof(void *)); *para=func_para;
     if(priority<0) priority=0;
     
-    
     int i;
     struct ThreadPoolData *data;
     struct HandleThreadPool *handle=NULL;
@@ -192,7 +193,6 @@ void m_ThreadPool(MList *pool,void *function,void *func_para,int *flag,int prior
     }
     if(pool==NULL) pool=handle->pool;
     
-    
     for(i=0;i<handle->pool_num;i++)
     {
         data = (struct ThreadPoolData *)(pool->data[i]);
@@ -216,23 +216,26 @@ void m_ThreadPool(MList *pool,void *function,void *func_para,int *flag,int prior
             handle->idle_count++;
             if(handle->idle_count>MAX(handle->pool_num,8))
             {
+                if(handle->thrd0) mThreadEnd(handle->thrd0);
                 data->func = NULL;
                 data->state = 1;
                 mThreadWake(data->sgn,1);
 //                 mThreadEnd(&(data->thrd));
                 pool->num = pool->num-1;
                 handle->pool_num = pool->num;
+                handle->thrd0=&(data->thrd);
             }
         }
         return;
     }
-    
     
     MList *buff = handle->buff;
     if((handle->buff_num == MAX(pool->num,4))&&(handle->thread_adjust)&&(handle->pool_num<handle->thread_max))
     {
         data = (struct ThreadPoolData *)mListWrite(pool,DFLT,NULL,sizeof(struct ThreadPoolData));
         handle->pool_num = pool->num;
+        if(handle->thrd0) mThreadEnd(handle->thrd0);
+        handle->thrd0=NULL;
         data->handle=handle;
         data->func = func;
         data->para = para;
@@ -243,8 +246,7 @@ void m_ThreadPool(MList *pool,void *function,void *func_para,int *flag,int prior
         return;
     }
     
-    while(handle->buff_num > MAX(pool->num,4));
-    
+    while(handle->buff_num > MAX(pool->num*4,16));
     struct ThreadBuffData buff_data;
     buff_data.func = func;
     buff_data.para = para;
@@ -265,7 +267,6 @@ void m_ThreadPool(MList *pool,void *function,void *func_para,int *flag,int prior
     handle->buff_num=buff->num;
     mThreadLockEnd(handle->sgn0);
 }
-
 
 
 

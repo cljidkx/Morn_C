@@ -33,7 +33,7 @@ void test3()
 
 int main()
 {
-    for(int i=0;i<8;i++)
+    for(int i=0;i<4;i++)
     {
         printf("\nrunning in main ,i=%d, goto test1...\n",i);
         mCoroutine(test1);

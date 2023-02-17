@@ -253,7 +253,12 @@ void m_PropertyVariate(MObject *obj,const char *key,void *var,int var_size)
     struct Property *p = mornMapRead(handle->property,key,DFLT,NULL,&vsize);
     
     if(p!=NULL) memcpy(var,p->value,vsize-sizeof(struct Property));
-    else {p=mornMapWrite(handle->property,key,DFLT,NULL,vsize);p->func=NULL;p->para=NULL;}
+    else 
+    {
+        p=mornMapWrite(handle->property,key,DFLT,NULL,vsize);
+        memcpy(p->value,var,vsize-sizeof(struct Property));
+        p->func=NULL;p->para=NULL;
+    }
     
     p->var = var;
 }

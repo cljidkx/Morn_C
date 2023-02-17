@@ -13,7 +13,7 @@ message("${PROJECT_NAME} cmake version: ${CMAKE_VERSION}")
 message("${PROJECT_NAME} project version: ${PROJECT_VERSION}")
 message("${PROJECT_NAME} compiler: ${CMAKE_C_COMPILER_ID}")
 
-set(CMAKE_VERBOSE_MAKEFILE ON)
+# set(CMAKE_VERBOSE_MAKEFILE ON)
 
 include(GNUInstallDirs)
 include(CMakePackageConfigHelpers)
