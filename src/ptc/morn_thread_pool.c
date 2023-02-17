@@ -29,7 +29,7 @@ struct HandleThreadPool
     int pool_num;
     
     MList *buff;
-    volatile int buff_num;
+    int buff_num;
 
     int thread_adjust;
     int thread_max;
@@ -82,7 +82,6 @@ void ThreadFunc(struct ThreadPoolData *data)
         if(buff->num>0)
         {
             buff->num=buff->num-1;
-            handle->buff_num = buff->num;
             buff_data = (struct ThreadBuffData *)(buff->data[buff->num]);
             data->func = buff_data->func;
             data->para = buff_data->para;
@@ -169,7 +168,9 @@ void m_ThreadPool(MList *pool,void *function,void *func_para,int *flag,int prior
             m_PropertyVariate(object,"thread_num",&(handle->pool_num),sizeof(int));
             
             if(handle->buff==NULL) handle->buff=mListCreate();
-
+            
+            handle->buff_num=MAX(pool->num*4,16);
+            mPropertyVariate(object,"queue_max"    ,&(handle->buff_num     ),sizeof(int));
             handle->thread_adjust=0;
             mPropertyVariate(object,"thread_adjust",&(handle->thread_adjust),sizeof(int));
             handle->thread_max = handle->pool_num*2;
@@ -224,7 +225,7 @@ void m_ThreadPool(MList *pool,void *function,void *func_para,int *flag,int prior
     }
     
     MList *buff = handle->buff;
-    if((handle->buff_num == MAX(pool->num,4))&&(handle->thread_adjust)&&(handle->pool_num<handle->thread_max))
+    if((buff->num==handle->buff_num)&&(handle->thread_adjust)&&(handle->pool_num<handle->thread_max))
     {
         data = (struct ThreadPoolData *)mListWrite(pool,DFLT,NULL,sizeof(struct ThreadPoolData));
         handle->pool_num = pool->num;
@@ -240,7 +241,7 @@ void m_ThreadPool(MList *pool,void *function,void *func_para,int *flag,int prior
         return;
     }
     
-    while(handle->buff_num > MAX(pool->num*4,16));
+    while(buff->num >= handle->buff_num);
     struct ThreadBuffData buff_data;
     buff_data.func = func;
     buff_data.para = para;
@@ -258,7 +259,6 @@ void m_ThreadPool(MList *pool,void *function,void *func_para,int *flag,int prior
         }
     }
     if(i==buff->num) mListWrite(buff,i,&buff_data,sizeof(struct ThreadBuffData));
-    handle->buff_num=buff->num;
     mThreadLockEnd(handle->sgn0);
 }
 
