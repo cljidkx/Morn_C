@@ -2,13 +2,6 @@
 Copyright (C) 2019-2023 JingWeiZhangHuai <jingweizhanghuai@163.com>
 Licensed under the Apache License, Version 2.0; you may not use this file except in compliance with the License. You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0 Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the specific language governing permissions and limitations under the License.
 */
-#ifndef __linux__
-#include "windows.h"
-#else
-#include "unistd.h"
-#include "sys/sysinfo.h"
-#endif
-
 #include "morn_ptc.h"
 
 struct ThreadPoolData
@@ -61,7 +54,7 @@ void endThreadPool(struct HandleThreadPool *handle)
         mThreadWake(data->sgn,1);
         mThreadEnd(&(data->thrd));
     }
-    if(handle->pool!=NULL)
+    if(handle==morn_thread_pool_handle)
     {
         mListRelease(handle->pool);
         morn_thread_pool_handle=NULL;
@@ -150,48 +143,50 @@ void m_ThreadPool(MList *pool,void *function,void *func_para,int *flag,int prior
         MObject *object=(pool==NULL)?mMornObject("ThreadPool",DFLT):(MObject *)pool;
         MHandle *hdl=mHandle(object,ThreadPool);
         handle = (struct HandleThreadPool *)(hdl->handle);
-        
-        if(pool!=NULL) {handle->pool_num=pool->num;handle->pool=NULL;}
-        else
+        if(!mHandleValid(hdl))
         {
-            if(handle->pool==NULL) handle->pool = mListCreate();
-            pool=handle->pool;
-            mPropertyFunction(object,"exit",mornObjectRemove,"ThreadPool");
-            morn_thread_pool_handle=handle;
-        }
+            if(pool!=NULL) {handle->pool_num=pool->num;handle->pool=pool;pool->num=0;}
+            else
+            {
+                if(handle->pool==NULL) handle->pool = mListCreate();
+                pool=handle->pool;
+                mPropertyFunction(object,"exit",mornObjectRemove,"ThreadPool");
+                morn_thread_pool_handle=handle;
+            }
+                
+            mPropertyRead(object,"thread_num",&(handle->pool_num));
+            if(handle->pool_num<=0)
+            {
+                #ifdef LINUX
+                handle->pool_num=sysconf(_SC_NPROCESSORS_ONLN);// cpu number
+                #else
+                SYSTEM_INFO sysInfo;GetSystemInfo(&sysInfo);
+                handle->pool_num=sysInfo.dwNumberOfProcessors;// cpu number
+                #endif
+    //             printf("cpu num=%d\n",handle->pool_num);
+            }
+            mListPlace(pool,NULL,handle->pool_num,sizeof(struct ThreadPoolData));
+            m_PropertyVariate(object,"thread_num",&(handle->pool_num),sizeof(int));
             
-        mPropertyRead(object,"thread_num",&(handle->pool_num));
-        if(handle->pool_num<=0)
-        {
-            #ifdef LINUX
-            handle->pool_num=sysconf(_SC_NPROCESSORS_ONLN);// cpu number
-            #else
-            SYSTEM_INFO sysInfo;GetSystemInfo(&sysInfo);
-            handle->pool_num=sysInfo.dwNumberOfProcessors;// cpu number
-            #endif
-//             printf("cpu num=%d\n",handle->pool_num);
-        }
-        mListPlace(pool,NULL,handle->pool_num,sizeof(struct ThreadPoolData));
-        m_PropertyVariate(object,"thread_num",&(handle->pool_num),sizeof(int));
-        
-        if(handle->buff==NULL) handle->buff=mListCreate();
+            if(handle->buff==NULL) handle->buff=mListCreate();
 
-        handle->thread_adjust=0;
-        mPropertyVariate(object,"thread_adjust",&(handle->thread_adjust),sizeof(int));
-        handle->thread_max = handle->pool_num*2;
-        mPropertyVariate(object,"thread_max"   ,&(handle->thread_max   ),sizeof(int));
-        
-        for(i=0;i<pool->num;i++)
-        {
-            data = (struct ThreadPoolData *)(pool->data[i]);
-            data->state=0;data->handle=handle;
-            mThreadBegin(&(data->thrd),ThreadFunc,data);
+            handle->thread_adjust=0;
+            mPropertyVariate(object,"thread_adjust",&(handle->thread_adjust),sizeof(int));
+            handle->thread_max = handle->pool_num*2;
+            mPropertyVariate(object,"thread_max"   ,&(handle->thread_max   ),sizeof(int));
+            
+            for(i=0;i<pool->num;i++)
+            {
+                data = (struct ThreadPoolData *)(pool->data[i]);
+                data->state=0;data->handle=handle;
+                mThreadBegin(&(data->thrd),ThreadFunc,data);
+            }
+            mPropertyFunction(object,"thread_num",ThreadPoolNumber,handle);
+            
+            hdl->valid =1;
         }
-        mPropertyFunction(object,"thread_num",ThreadPoolNumber,handle);
-        
-        hdl->valid =1;
     }
-    if(pool==NULL) pool=handle->pool;
+    pool=handle->pool;
     
     for(i=0;i<handle->pool_num;i++)
     {
@@ -220,7 +215,6 @@ void m_ThreadPool(MList *pool,void *function,void *func_para,int *flag,int prior
                 data->func = NULL;
                 data->state = 1;
                 mThreadWake(data->sgn,1);
-//                 mThreadEnd(&(data->thrd));
                 pool->num = pool->num-1;
                 handle->pool_num = pool->num;
                 handle->thrd0=&(data->thrd);
